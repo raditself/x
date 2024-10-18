@@ -3,10 +3,12 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname)));
 
 const users = [];
 const SECRET_KEY = 'your-secret-key';
@@ -66,6 +68,11 @@ app.get('/protected', (req, res) => {
         
         res.json({ message: 'Access granted', user: decoded.username });
     });
+});
+
+// Serve index.html for all other routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
