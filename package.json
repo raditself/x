@@ -1,0 +1,18 @@
+{
+  "name": "iris_browser_app",
+  "version": "1.0.0",
+  "description": "This project is a simple browser-based AI chat application using TensorFlow.js for a custom AI model.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
