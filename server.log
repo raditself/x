@@ -1,0 +1,27 @@
+
+> web-app@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use, trying 3001 instead.
+ ⚠ Port 3001 is in use, trying 3002 instead.
+  ▲ Next.js 14.2.13
+  - Local:        http://localhost:3002
+
+ ✓ Starting...
+ ✓ Ready in 2.6s
+ ○ Compiling / ...
+ ✓ Compiled / in 5.1s (567 modules)
+ HEAD / 200 in 5387ms
+ ✓ Compiled in 487ms (270 modules)
+ GET / 200 in 37ms
+ GET /? 200 in 28ms
+ ✓ Compiled /_not-found in 394ms (538 modules)
+ GET /apple-touch-icon.png 404 in 556ms
+ GET /favicon.png 404 in 26ms
+ GET /favicon.gif 404 in 22ms
+ ✓ Compiled /favicon.ico in 250ms (311 modules)
+ GET /favicon.ico 200 in 119ms
+ GET /favicon.ico 200 in 363ms
+ GET / 200 in 143ms
+ GET /favicon.ico 200 in 23ms
+ GET /favicon.ico 200 in 9ms
