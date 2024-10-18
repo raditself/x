@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SendIcon } from 'lucide-react'
+import axios from 'axios'
 
 type Message = {
   id: number;
@@ -21,7 +22,7 @@ export default function ChatInterface() {
   ]);
   const [inputMessage, setInputMessage] = useState('');
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (inputMessage.trim() !== '') {
       const newMessage: Message = {
         id: messages.length + 1,
@@ -31,26 +32,18 @@ export default function ChatInterface() {
       setMessages([...messages, newMessage]);
       setInputMessage('');
       
-      // Send message to backend service
-      fetch('http://localhost:3001/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: inputMessage }),
-      })
-        .then(response => response.json())
-        .then(data => {
-          const botResponse: Message = {
-            id: messages.length + 2,
-            text: data.response,
-            sender: 'bot'
-          };
-          setMessages(prevMessages => [...prevMessages, botResponse]);
-        })
-        .catch(error => {
-          console.error('Error:', error);
-        });
+      // Get bot response from the AI model
+      try {
+        const response = await axios.post('/api/chat', { prompt: inputMessage });
+        const botResponse: Message = {
+          id: messages.length + 2,
+          text: response.data.response,
+          sender: 'bot'
+        };
+        setMessages(prevMessages => [...prevMessages, botResponse]);
+      } catch (error) {
+        console.error("Error getting bot response:", error);
+      }
     }
   };
 
