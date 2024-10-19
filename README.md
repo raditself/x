@@ -1,13 +1,8 @@
-# Ollama Chatbot
+# AI Chatbot
 
-This is a simple chatbot using Ollama and Streamlit.
+This is an AI chatbot using the StableLM model.
 
-## Prerequisites
-
-- [Ollama](https://ollama.ai/download) installed and running on your system
-- Python 3.7+
-
-## Installation
+## Setup
 
 1. Clone this repository:
    ```
@@ -20,22 +15,26 @@ This is a simple chatbot using Ollama and Streamlit.
    pip install -r requirements.txt
    ```
 
-3. Pull the Llama2 model using Ollama:
-   ```
-   ollama pull llama2
-   ```
+## Running the Chatbot
 
-## Usage
-
-1. Start the Streamlit app:
+1. Start the Flask server:
    ```
-   streamlit run chatbot.py
+   python chatbot.py
    ```
 
-2. Open your web browser and go to the URL displayed in the terminal (usually http://localhost:8501)
+2. The server will start on http://localhost:5000
 
-3. Start chatting with the bot!
+3. You can interact with the chatbot by sending POST requests to http://localhost:5000/chat with a JSON payload:
+   ```
+   {"message": "Your message here"}
+   ```
 
-## Note
+4. To check the model status, send a GET request to http://localhost:5000/model_status
 
-Make sure Ollama is running in the background before starting the Streamlit app.
+## Features
+
+- Automatic model downloading
+- Real-time progress tracking for model download
+- Model loading time tracking
+- Logging of chat interactions and model responses
+
