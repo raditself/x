@@ -1,40 +1,23 @@
-# AI Chatbot
+# AI-Powered Code Editor
 
-This is an AI chatbot using the StableLM model.
+This project is an AI-powered code editor with the following features:
+- Chat interface with AI for code assistance
+- File management (upload, list, and download)
+- GitHub integration for pushing files to repositories
 
 ## Setup
-
-1. Clone this repository:
-   ```
-   git clone https://github.com/raditself/x.git
-   cd x
-   ```
-
-2. Install the required packages:
+1. Install the required packages:
    ```
    pip install -r requirements.txt
    ```
+2. Set up environment variables:
+   - GITHUB_TOKEN: Your GitHub personal access token
+   - OLLAMA_API_URL: URL for the Ollama API (default: http://localhost:11434/api/generate)
 
-## Running the Chatbot
+## Running the application
+Run the Flask application:
+```
+python app.py
+```
 
-1. Start the Flask server:
-   ```
-   python chatbot.py
-   ```
-
-2. The server will start on http://localhost:5000
-
-3. You can interact with the chatbot by sending POST requests to http://localhost:5000/chat with a JSON payload:
-   ```
-   {"message": "Your message here"}
-   ```
-
-4. To check the model status, send a GET request to http://localhost:5000/model_status
-
-## Features
-
-- Automatic model downloading
-- Real-time progress tracking for model download
-- Model loading time tracking
-- Logging of chat interactions and model responses
-
+The application will be available at http://localhost:5000
