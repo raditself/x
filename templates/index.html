@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Code Editor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        #chat-container, #file-container, #github-container { margin-bottom: 20px; }
+        textarea, input[type="text"] { width: 100%; margin-bottom: 10px; }
+        #file-list { list-style-type: none; padding: 0; }
+        #file-list li { margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <h1>AI-Powered Code Editor</h1>
+    
+    <div id="chat-container">
+        <h2>Chat with AI</h2>
+        <textarea id="chat-input" rows="4" placeholder="Enter your message..."></textarea>
+        <button onclick="sendChatMessage()">Send</button>
+        <div id="chat-response"></div>
+    </div>
+
+    <div id="file-container">
+        <h2>File Management</h2>
+        <input type="file" id="file-upload">
+        <button onclick="uploadFile()">Upload</button>
+        <h3>Files:</h3>
+        <ul id="file-list"></ul>
+    </div>
+
+    <div id="github-container">
+        <h2>GitHub Integration</h2>
+        <input type="text" id="repo-name" placeholder="Repository name">
+        <input type="text" id="file-name" placeholder="File name">
+        <input type="text" id="commit-message" placeholder="Commit message">
+        <button onclick="pushToGitHub()">Push to GitHub</button>
+        <div id="github-response"></div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const response = await fetch(`${API_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: input.value })
+            });
+            const data = await response.json();
+            document.getElementById('chat-response').innerText = data.response;
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('file-upload');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            await fetch(`${API_URL}/files`, {
+                method: 'POST',
+                body: formData
+            });
+            listFiles();
+        }
+
+        async function listFiles() {
+            const response = await fetch(`${API_URL}/files`);
+            const data = await response.json();
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = '';
+            data.files.forEach(file => {
+                const li = document.createElement('li');
+                li.innerText = `${file.name} (${file.size} bytes)`;
+                fileList.appendChild(li);
+            });
+        }
+
+        async function pushToGitHub() {
+            const repoName = document.getElementById('repo-name').value;
+            const fileName = document.getElementById('file-name').value;
+            const commitMessage = document.getElementById('commit-message').value;
+            const response = await fetch(`${API_URL}/github`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ repo_name: repoName, file_name: fileName, commit_message: commitMessage })
+            });
+            const data = await response.json();
+            document.getElementById('github-response').innerText = data.message;
+        }
+
+        listFiles();
+    </script>
+</body>
+</html>
