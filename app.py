@@ -1,23 +1,17 @@
 
-
-
-
-
-
-
-
-
-
-
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, render_template, g
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_httpauth import HTTPBasicAuth
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
 import os
 import requests
 from dotenv import load_dotenv
-from werkzeug.utils import secure_filename
-from github import Github
-from github import GithubException
 import logging
+import openai
+from docker_sandbox import DockerSandbox
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -26,116 +20,95 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+auth = HTTPBasicAuth()
+limiter = Limiter(app, key_func=get_remote_address)
 
-OLLAMA_API_URL = os.getenv('OLLAMA_API_URL', 'http://localhost:11434/api/generate')
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://admin:password@db/ai_assistant')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+openai.api_key = OPENAI_API_KEY
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(120), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@auth.verify_password
+def verify_password(username, password):
+    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(password):
+        g.current_user = user
+        return username
 
 @app.route('/')
 def index():
     app.logger.info('Rendering index page')
     return render_template('index.html')
 
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+    
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "Username already exists"}), 400
+    
+    new_user = User(username=username)
+    new_user.set_password(password)
+    db.session.add(new_user)
+    db.session.commit()
+    
+    return jsonify({"message": "User registered successfully"}), 201
+
 @app.route('/api/chat', methods=['POST'])
+@auth.login_required
+@limiter.limit("10/minute")
 def chat():
     app.logger.info('Received chat request')
     data = request.json
     prompt = data.get('prompt', '')
     
-    ollama_payload = {
-        "model": "llama2",
-        "prompt": prompt,
-        "stream": False
-    }
-    
     try:
-        response = requests.post(OLLAMA_API_URL, json=ollama_payload)
-        response.raise_for_status()
-        ai_response = response.json()['response']
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        ai_response = response.choices[0].message.content.strip()
         return jsonify({"response": ai_response})
-    except requests.RequestException as e:
+    except Exception as e:
         app.logger.error(f'Error in chat request: {str(e)}')
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/files', methods=['GET', 'POST'])
-def files():
-    if request.method == 'GET':
-        app.logger.info('Listing files')
-        files = []
-        for filename in os.listdir(UPLOAD_FOLDER):
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-            if os.path.isfile(file_path):
-                files.append({
-                    'name': filename,
-                    'size': os.path.getsize(file_path),
-                    'modified': os.path.getmtime(file_path)
-                })
-        return jsonify({"files": files})
-    elif request.method == 'POST':
-        app.logger.info('Uploading file')
-        if 'file' not in request.files:
-            return jsonify({"error": "No file part"}), 400
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({"error": "No selected file"}), 400
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            return jsonify({"message": "File uploaded successfully"})
-        return jsonify({"error": "File type not allowed"}), 400
-
-@app.route('/api/files/<filename>', methods=['GET'])
-def download_file(filename):
-    app.logger.info(f'Downloading file: {filename}')
-    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
-
-@app.route('/api/github', methods=['POST'])
-def github():
-    app.logger.info('Received GitHub request')
+@app.route('/api/execute', methods=['POST'])
+@auth.login_required
+@limiter.limit("5/minute")
+def execute_code():
+    app.logger.info('Received code execution request')
     data = request.json
-    repo_name = data.get('repo_name')
-    file_name = data.get('file_name')
-    commit_message = data.get('commit_message', 'Update from web app')
-    
-    if not all([repo_name, file_name]):
-        return jsonify({"error": "Missing required parameters"}), 400
+    code = data.get('code', '')
     
     try:
-        g = Github(GITHUB_TOKEN)
-        repo = g.get_user().get_repo(repo_name)
-        file_path = os.path.join(UPLOAD_FOLDER, file_name)
-        
-        with open(file_path, 'r') as file:
-            content = file.read()
-        
-        try:
-            contents = repo.get_contents(file_name)
-            repo.update_file(contents.path, commit_message, content, contents.sha)
-        except GithubException:
-            repo.create_file(file_name, commit_message, content)
-        
-        return jsonify({"message": "File successfully pushed to GitHub"})
+        sandbox = DockerSandbox()
+        output = sandbox.execute_code(code)
+        return jsonify({"output": output})
     except Exception as e:
-        app.logger.error(f'Error in GitHub request: {str(e)}')
+        app.logger.error(f'Error in code execution: {str(e)}')
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    app.logger.info('Starting Flask application')
-    app.run(debug=True)
-
-
-
-
-
-
-
-
-
-
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True, host='0.0.0.0')

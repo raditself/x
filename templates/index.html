@@ -1,95 +1,166 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI-Powered Code Editor</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="AI-Powered Project with Code Editor, Jupyter IPython, and Terminal" />
+    <title>AI-Powered Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        #chat-container, #file-container, #github-container { margin-bottom: 20px; }
-        textarea, input[type="text"] { width: 100%; margin-bottom: 10px; }
-        #file-list { list-style-type: none; padding: 0; }
-        #file-list li { margin-bottom: 5px; }
+        body { height: 100vh; }
+        #chat-messages { height: 300px; overflow-y: auto; }
+        #code-editor { height: 300px; }
     </style>
 </head>
 <body>
-    <h1>AI-Powered Code Editor</h1>
-    
-    <div id="chat-container">
-        <h2>Chat with AI</h2>
-        <textarea id="chat-input" rows="4" placeholder="Enter your message..."></textarea>
-        <button onclick="sendChatMessage()">Send</button>
-        <div id="chat-response"></div>
+    <div class="container-fluid h-100">
+        <div class="row h-100">
+            <div class="col-md-6 d-flex flex-column">
+                <h2>AI Assistant</h2>
+                <div id="auth-container" class="mb-3">
+                    <input type="text" id="username" class="form-control mb-2" placeholder="Username">
+                    <input type="password" id="password" class="form-control mb-2" placeholder="Password">
+                    <button class="btn btn-primary me-2" onclick="register()">Register</button>
+                    <button class="btn btn-secondary" onclick="login()">Login</button>
+                </div>
+                <div id="chat-messages" class="border p-2 mb-2"></div>
+                <div class="input-group">
+                    <input type="text" id="user-message" class="form-control" placeholder="Type your message...">
+                    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+            <div class="col-md-6 d-flex flex-column">
+                <h2>Code Editor</h2>
+                <div id="code-editor" class="border mb-2"></div>
+                <button class="btn btn-success mb-2" onclick="runCode()">Run Code</button>
+                <div id="output" class="border p-2" style="height: 150px; overflow-y: auto;"></div>
+            </div>
+        </div>
     </div>
 
-    <div id="file-container">
-        <h2>File Management</h2>
-        <input type="file" id="file-upload">
-        <button onclick="uploadFile()">Upload</button>
-        <h3>Files:</h3>
-        <ul id="file-list"></ul>
-    </div>
-
-    <div id="github-container">
-        <h2>GitHub Integration</h2>
-        <input type="text" id="repo-name" placeholder="Repository name">
-        <input type="text" id="file-name" placeholder="File name">
-        <input type="text" id="commit-message" placeholder="Commit message">
-        <button onclick="pushToGitHub()">Push to GitHub</button>
-        <div id="github-response"></div>
-    </div>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const API_URL = '/api';
+        const chatMessages = document.getElementById('chat-messages');
+        const userMessageInput = document.getElementById('user-message');
+        const outputDiv = document.getElementById('output');
+        let authToken = '';
 
-        async function sendChatMessage() {
-            const input = document.getElementById('chat-input');
-            const response = await fetch(`${API_URL}/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: input.value })
-            });
-            const data = await response.json();
-            document.getElementById('chat-response').innerText = data.response;
+        const editor = ace.edit("code-editor");
+        editor.setTheme("ace/theme/monokai");
+        editor.session.setMode("ace/mode/python");
+
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    alert('Registration successful. Please login.');
+                } else {
+                    alert(`Registration failed: ${data.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
         }
 
-        async function uploadFile() {
-            const fileInput = document.getElementById('file-upload');
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
-            await fetch(`${API_URL}/files`, {
-                method: 'POST',
-                body: formData
-            });
-            listFiles();
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            authToken = btoa(`${username}:${password}`);
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${authToken}`
+                    },
+                    body: JSON.stringify({ prompt: 'Hello' })
+                });
+                if (response.ok) {
+                    alert('Login successful');
+                    document.getElementById('auth-container').style.display = 'none';
+                } else {
+                    alert('Login failed');
+                    authToken = '';
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                authToken = '';
+            }
         }
 
-        async function listFiles() {
-            const response = await fetch(`${API_URL}/files`);
-            const data = await response.json();
-            const fileList = document.getElementById('file-list');
-            fileList.innerHTML = '';
-            data.files.forEach(file => {
-                const li = document.createElement('li');
-                li.innerText = `${file.name} (${file.size} bytes)`;
-                fileList.appendChild(li);
-            });
+        async function sendMessage() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            const message = userMessageInput.value;
+            if (message.trim() === '') return;
+
+            appendMessage('User', message);
+            userMessageInput.value = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${authToken}`
+                    },
+                    body: JSON.stringify({ prompt: message })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const data = await response.json();
+                appendMessage('AI', data.response);
+            } catch (error) {
+                appendMessage('System', `Error: ${error.message}`);
+            }
         }
 
-        async function pushToGitHub() {
-            const repoName = document.getElementById('repo-name').value;
-            const fileName = document.getElementById('file-name').value;
-            const commitMessage = document.getElementById('commit-message').value;
-            const response = await fetch(`${API_URL}/github`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ repo_name: repoName, file_name: fileName, commit_message: commitMessage })
-            });
-            const data = await response.json();
-            document.getElementById('github-response').innerText = data.message;
+        function appendMessage(sender, message) {
+            const messageElement = document.createElement('div');
+            messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        listFiles();
+        async function runCode() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            const code = editor.getValue();
+            outputDiv.innerHTML = 'Running code...';
+
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${authToken}`
+                    },
+                    body: JSON.stringify({ code: code })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const data = await response.json();
+                outputDiv.innerHTML = `<pre>${data.output}</pre>`;
+            } catch (error) {
+                outputDiv.innerHTML = `Error: ${error.message}`;
+            }
+        }
     </script>
 </body>
 </html>
